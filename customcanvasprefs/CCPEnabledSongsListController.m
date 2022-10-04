@@ -10,20 +10,12 @@
 	return (settings[specifier.properties[PSKeyNameKey]]) ?: specifier.properties[PSDefaultValueKey];
 }
 
-- (void)copyCanvasFromURL:(NSURL *)from forURI:(NSString *)URI {
-    if(![URI containsString:@"spotify:track:"]) return;
-    if([URI length] != 36) return;
-    // SBApplication *application = [[NSClassFromString(@"SBApplicationController") sharedInstance] applicationWithBundleIdentifier:@"com.spotify.client"];
-    // NSURL *containerURL = [application.info dataContainerURL];
-}
-
 - (void)setPreferenceValue:(id)value specifier:(PSSpecifier *)specifier {
     NSString *path = [NSString stringWithFormat:@"/User/Library/Preferences/%@.plist", specifier.properties[PSDefaultsKey]];
 	NSMutableDictionary *settings = [NSMutableDictionary dictionaryWithContentsOfFile:path];
     NSString *URI = specifier.properties[PSKeyNameKey];
 	[settings setObject:value forKey:URI];
 	[settings writeToFile:path atomically:YES];
-    [self copyCanvasFromURL:[NSURL fileURLWithPath:value] forURI:URI];
 	CFStringRef notificationName = (__bridge CFStringRef)specifier.properties[PSValueChangedNotificationKey];
 	if (notificationName) {
         NSDictionary *userInfo = @{@"specifier": URI};

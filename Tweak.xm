@@ -1,5 +1,22 @@
 #import "CustomCanvas.h"
 
+static inline BOOL extensionIsImage(NSString *extension) {
+    extension = [extension lowercaseString];
+    return !([extension isEqualToString:@"mov"] || [extension isEqualToString:@"mp4"]);
+}
+
+static NSString *filenameForURI(NSString *URI, NSString *extension) {
+    NSString *canvasType = extensionIsImage(extension) ? @"image" : @"video";
+    NSString *filename = [NSString stringWithFormat:@"upload-artist-%@-%@-%@.cnvs.%@", URI, canvasType, URI, extension];
+    return filename;
+}
+
+static NSString *fakeURLForURI(NSString *URI, NSString *extension) {
+    NSString *canvasType = extensionIsImage(extension) ? @"image" : @"video";
+    return [NSString stringWithFormat:@"https://canvaz.scdn.co/upload/artist/%@/%@/%@.cnvs.%@", URI, canvasType, URI, extension];
+}
+
+
 static NSString *URIForURL(NSURL *URL) {
     NSString *spoofedURL = [URL absoluteString];
     NSString *const prefix = @"https://canvaz.scdn.co/upload/artist/";
@@ -17,30 +34,19 @@ static NSURL *pathForURL(NSURL *URL) {
     if(!URI) return nil;
     NSString *extension = [URL pathExtension];
     NSString *libraryPath = [NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSUserDomainMask, YES) objectAtIndex:0];
-    NSString *fileName = [NSString stringWithFormat:@"upload-artist-%@-video-%@.cnvs.%@", URI, URI, extension];
-    NSString *filePath = [NSString stringWithFormat:@"%@/Caches/Canvases/%@", libraryPath, fileName];
+    NSString *filename = filenameForURI(URI, extension);
+    NSString *filePath = [NSString stringWithFormat:@"%@/Caches/Canvases/%@", libraryPath, filename];
     NSURL *fileURL = [NSURL fileURLWithPath:filePath];
     return fileURL;
 }
 
 static NSURL *pathForURI(NSString *URI, NSString *extension, BOOL sandboxed) {
     if(!URI || !extension) return nil;
-    if(sandboxed) {
-        NSString *libraryPath = [NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, NSUserDomainMask, YES) objectAtIndex:0];
-        NSString *fileName = [NSString stringWithFormat:@"upload-artist-%@-video-%@.cnvs.%@", URI, URI, extension];
-        NSString *filePath = [NSString stringWithFormat:@"%@/Caches/Canvases/%@", libraryPath, fileName];
-        NSURL *fileURL = [NSURL fileURLWithPath:filePath];
-        return fileURL;
-    }
     SBApplication *application = [[NSClassFromString(@"SBApplicationController") sharedInstance] applicationWithBundleIdentifier:@"com.spotify.client"];
-    NSString *fileName = [NSString stringWithFormat:@"upload-artist-%@-video-%@.cnvs.%@", URI, URI, extension];
-    NSString *location = [NSString stringWithFormat:@"/Library/Caches/Canvases/%@", fileName];
+    NSString *filename = filenameForURI(URI, extension);
+    NSString *location = [NSString stringWithFormat:@"/Library/Caches/Canvases/%@", filename];
     NSURL *completeURL = [[application.info dataContainerURL] URLByAppendingPathComponent:location];
     return completeURL;
-}
-
-static inline NSString *fakeURLForURI(NSString *URI, NSString *extension) {
-    return [NSString stringWithFormat:@"https://canvaz.scdn.co/upload/artist/%@/video/%@.cnvs.%@", URI, URI, extension];
 }
 
 static void notificationCallback(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo) {
@@ -66,6 +72,7 @@ static void notificationCallback(CFNotificationCenterRef center, void *observer,
     }
 }
 
+
 static void refreshPrefs() {
     enabledSongs = [NSDictionary dictionaryWithContentsOfFile:@"/User/Library/Preferences/com.popsicletreehouse.customcanvasprefs.plist"];
 }
@@ -77,17 +84,18 @@ static void refreshPrefs() {
     NSString *originalPath = [enabledSongs objectForKey:URI];
     if(originalPath) {
         NSMutableDictionary *dict = [%orig mutableCopy];
-        NSString *ext = [originalPath pathExtension];
-        NSString *fakeURL = fakeURLForURI(URI, ext);
+        NSString *extension = [originalPath pathExtension];
+        NSString *fakeURL = fakeURLForURI(URI, extension);
+        NSString *canvasType = extensionIsImage(extension) ? @"IMAGE" : @"VIDEO_LOOPING_RANDOM";
         [dict setObject:fakeURL forKey:@"canvas.url"];
+        [dict setObject:canvasType forKey:@"canvas.type"];
         [dict setObject:@"" forKey:@"canvas.id"];
-        [dict setObject:@"artist" forKey:@"canvas.uploadedBy"];
-        [dict setObject:@"spotify:canvas:" forKey:@"canvas.canvasUri"];
-        [dict setObject:@"spotify:track:" forKey:@"canvas.entityUri"];
-        [dict setObject:@"spotify:artist:" forKey:@"canvas.artist.uri"];
-        [dict setObject:@"VIDEO_LOOPING_RANDOM" forKey:@"canvas.type"];
         [dict setObject:@"" forKey:@"canvas.explicit"];
         [dict setObject:@"" forKey:@"canvas.artist.name"];
+        [dict setObject:@"artist" forKey:@"canvas.uploadedBy"];
+        [dict setObject:@"spotify:track:" forKey:@"canvas.entityUri"];
+        [dict setObject:@"spotify:canvas:" forKey:@"canvas.canvasUri"];
+        [dict setObject:@"spotify:artist:" forKey:@"canvas.artist.uri"];
         [dict setObject:@"https://www.youtube.com/watch?v=dQw4w9WgXcQ" forKey:@"canvas.artist.avatar"];
         return dict;
     }
